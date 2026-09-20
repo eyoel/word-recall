@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word List Recall</title>
+<style>
+:root{
+  --bg:#faf9f7; --surface:#ffffff; --surface-2:#f2f0ec; --border:#e2dfd8;
+  --text:#1f1e1c; --dim:#6b6862; --faint:#94908a;
+  --accent:#3f6d8f; --accent-bg:#e8f0f6;
+  --good:#3d6b45; --good-bg:#e8f1e9;
+  --warn:#8a5a1f; --warn-bg:#f7efe2;
+  --bad:#8c3a35; --bad-bg:#f7eae9;
+  --radius:10px;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#1a1917; --surface:#232220; --surface-2:#2c2b28; --border:#3a3835;
+    --text:#eceae5; --dim:#a8a49d; --faint:#7d7a74;
+    --accent:#8fb8d4; --accent-bg:#233542;
+    --good:#8fc09a; --good-bg:#223126;
+    --warn:#d9ae70; --warn-bg:#352a18;
+    --bad:#dd9a95; --bad-bg:#3a2523;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1a1917; --surface:#232220; --surface-2:#2c2b28; --border:#3a3835;
+  --text:#eceae5; --dim:#a8a49d; --faint:#7d7a74;
+  --accent:#8fb8d4; --accent-bg:#233542;
+  --good:#8fc09a; --good-bg:#223126;
+  --warn:#d9ae70; --warn-bg:#352a18;
+  --bad:#dd9a95; --bad-bg:#3a2523;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:660px; margin:0 auto; padding:24px 20px 64px}
+header{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:28px}
+h1{font-size:19px; font-weight:600; margin:0; letter-spacing:-0.01em}
+h2{font-size:17px; font-weight:600; margin:0 0 10px}
+h3{font-size:14px; font-weight:600; margin:0 0 6px; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em}
+p{margin:0 0 12px}
+.muted{color:var(--dim); font-size:14px}
+.faint{color:var(--faint); font-size:13px}
+.card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px}
+button{
+  font:inherit; font-size:15px; font-weight:500; cursor:pointer;
+  background:var(--text); color:var(--bg); border:1px solid var(--text);
+  border-radius:var(--radius); padding:11px 20px; transition:opacity .15s;
+}
+button:hover{opacity:.85}
+button:disabled{opacity:.4; cursor:not-allowed}
+button.ghost{background:transparent; color:var(--text); border-color:var(--border)}
+button.ghost:hover{background:var(--surface-2); opacity:1}
+button.sm{font-size:13px; padding:7px 13px}
+.row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+input[type=text]{
+  font:inherit; font-size:17px; padding:12px 14px; width:100%;
+  background:var(--surface); color:var(--text);
+  border:1px solid var(--border); border-radius:var(--radius);
+}
+input[type=text]:focus{outline:2px solid var(--accent); outline-offset:-1px}
+label.opt{
+  display:block; border:1px solid var(--border); border-radius:var(--radius);
+  padding:14px 16px; cursor:pointer; margin-bottom:10px; background:var(--surface);
+}
+label.opt:hover{background:var(--surface-2)}
+label.opt input{margin-right:10px}
+label.opt b{font-weight:600}
+.hidden{display:none !important}
+/* stage */
+#stage{
+  min-height:220px; display:flex; align-items:center; justify-content:center;
+  font-size:44px; font-weight:500; letter-spacing:-0.02em; text-align:center;
+}
+@media(max-width:480px){ #stage{font-size:34px; min-height:180px} }
+/* chips */
+.chips{display:flex; flex-wrap:wrap; gap:7px; margin-top:14px; min-height:34px}
+.chip{
+  background:var(--surface-2); border:1px solid var(--border);
+  border-radius:999px; padding:5px 13px; font-size:14px;
+}
+.chip.hit{background:var(--good-bg); border-color:transparent; color:var(--good)}
+.chip.rep{background:var(--warn-bg); border-color:transparent; color:var(--warn)}
+.chip.miss{background:var(--bad-bg); border-color:transparent; color:var(--bad)}
+/* timer */
+.timer{font-size:56px; font-weight:600; text-align:center; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; margin:8px 0}
+.bar{height:5px; background:var(--surface-2); border-radius:999px; overflow:hidden; margin:16px 0 6px}
+.bar > i{display:block; height:100%; background:var(--accent); width:0%; transition:width 1s linear}
+/* metrics */
+.metric{display:flex; justify-content:space-between; align-items:baseline; gap:16px; padding:11px 0; border-bottom:1px solid var(--border)}
+.metric:last-child{border-bottom:none}
+.metric .k{font-size:14px; color:var(--dim)}
+.metric .v{font-size:19px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap}
+.headline{background:var(--accent-bg); border-radius:var(--radius); padding:18px; text-align:center; margin-bottom:18px}
+.headline .big{font-size:40px; font-weight:600; line-height:1.1; font-variant-numeric:tabular-nums}
+.headline .lab{font-size:13px; color:var(--dim); margin-top:4px}
+dl.explain{margin:0}
+dl.explain dt{font-weight:600; font-size:14px; margin-top:14px}
+dl.explain dd{margin:2px 0 0; font-size:14px; color:var(--dim)}
+table{width:100%; border-collapse:collapse; font-size:13px}
+th,td{text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); font-variant-numeric:tabular-nums}
+th{color:var(--dim); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em}
+td.flag{color:var(--warn)}
+.scroll{overflow-x:auto}
+.note{background:var(--warn-bg); color:var(--warn); border-radius:var(--radius); padding:13px 15px; font-size:14px; margin-bottom:16px}
+.recog-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; margin-top:14px}
+.recog-grid button{
+  background:var(--surface); color:var(--text); border:1px solid var(--border);
+  font-size:15px; font-weight:400; padding:11px 8px; text-align:center;
+}
+.recog-grid button[aria-pressed="true"]{background:var(--accent-bg); border-color:var(--accent); color:var(--accent); font-weight:600}
+svg.spark{width:100%; height:120px; display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Word list recall</h1>
+  <button class="ghost sm" id="navHistory">History</button>
+</header>
+
+<!-- ============ HOME ============ -->
+<section id="s-home">
+  <div class="card">
+    <h2>Start a session</h2>
+    <p class="muted">A fresh, never-repeated 15-word list is generated each session. Words are spoken aloud and shown on screen, one per second.</p>
+    <h3 style="margin-top:20px">Mode</h3>
+    <label class="opt"><input type="radio" name="mode" value="1" checked><b>Single trial</b> — one presentation, then recall. About 3 minutes plus the delay.</label>
+    <label class="opt"><input type="radio" name="mode" value="5"><b>Five trials</b> — the same list presented and recalled five times. About 12 minutes plus the delay. Measures learning across repetition.</label>
+    <div class="note">Pick one mode and stay with it. Scores from the two modes are not comparable and are tracked separately.</div>
+    <label class="opt"><input type="checkbox" id="optRecog" checked><b>Include recognition trial</b> — after delayed recall, identify the 15 words among 15 similar decoys. Separates storage failure from retrieval failure.</label>
+    <div class="row" style="margin-top:16px">
+      <button id="btnStart">Begin</button>
+    </div>
+    <p class="faint" style="margin-top:14px">Test at the same time of day, in the same caffeine state, twice a week. Log your sleep separately.</p>
+  </div>
+</section>
+
+<!-- ============ READY ============ -->
+<section id="s-ready" class="hidden">
+  <div class="card">
+    <h2 id="readyTitle">Trial 1</h2>
+    <p class="muted" id="readyText">Fifteen words, one per second. Listen and watch. Don't write anything down. When they finish you'll type back as many as you can, in any order.</p>
+    <div class="row"><button id="btnPresent">Start presentation</button></div>
+    <p class="faint" style="margin-top:12px">Sound plays through your device. Check the volume first.</p>
+  </div>
+</section>
+
+<!-- ============ PRESENT ============ -->
+<section id="s-present" class="hidden">
+  <div class="card">
+    <div id="stage"></div>
+    <div class="bar"><i id="presentBar"></i></div>
+    <p class="faint" style="text-align:center" id="presentCount"></p>
+  </div>
+</section>
+
+<!-- ============ RECALL ============ -->
+<section id="s-recall" class="hidden">
+  <div class="card">
+    <h2 id="recallTitle">Recall</h2>
+    <p class="muted">Type every word you remember, in any order. Press Enter after each. Guessing is fine — wrong guesses are scored separately, not penalised.</p>
+    <input type="text" id="recallInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type a word, press Enter">
+    <div class="chips" id="recallChips"></div>
+    <div class="row" style="margin-top:18px">
+      <button id="btnRecallDone">Done</button>
+      <span class="faint" id="recallCount">0 entered</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TRIAL FEEDBACK ============ -->
+<section id="s-trialfb" class="hidden">
+  <div class="card">
+    <h2 id="tfbTitle">Trial complete</h2>
+    <div id="tfbBody"></div>
+    <div class="row" style="margin-top:18px"><button id="btnNextTrial">Continue</button></div>
+  </div>
+</section>
+
+<!-- ============ DELAY ============ -->
+<section id="s-delay" class="hidden">
+  <div class="card">
+    <h3>Delay interval</h3>
+    <div class="timer" id="timerText">20:00</div>
+    <div class="bar"><i id="delayBar"></i></div>
+    <div class="note" style="margin-top:18px">Do not rehearse the words. Don't repeat them in your head, don't picture the list. Go do something absorbing — work, a conversation, anything that occupies language. Rehearsal turns this into a test of effort instead of memory.</div>
+    <p class="muted">You can close this tab or the whole browser. The countdown keeps running and the session will resume when you come back.</p>
+    <div class="row">
+      <button class="ghost sm" id="btnNotify">Enable notification</button>
+      <span class="faint" id="notifyState"></span>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button id="btnDelaySkip" class="ghost sm hidden">Continue to delayed recall</button>
+      <button class="ghost sm" id="btnAbandon">Abandon session</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ REHEARSAL CHECK ============ -->
+<section id="s-honesty" class="hidden">
+  <div class="card">
+    <h2>Before you recall</h2>
+    <p class="muted">One honest question. This is logged with the score so contaminated sessions are visible in your data rather than hidden inside it.</p>
+    <p><b>During the 20 minutes, did you go over the words in your head?</b></p>
+    <div class="row">
+      <button id="btnNoRehearse">No, I left them alone</button>
+      <button class="ghost" id="btnYesRehearse">Yes, at least a little</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RECOGNITION ============ -->
+<section id="s-recog" class="hidden">
+  <div class="card">
+    <h2>Recognition</h2>
+    <p class="muted">Tap every word that was on the list. Fifteen of these thirty were. The decoys come from the same categories, so go carefully.</p>
+    <div class="recog-grid" id="recogGrid"></div>
+    <div class="row" style="margin-top:18px">
+      <button id="btnRecogDone">Submit</button>
+      <span class="faint" id="recogCount">0 selected</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RESULTS ============ -->
+<section id="s-results" class="hidden">
+  <div class="card">
+    <h2>Session score</h2>
+    <div id="resultsHead"></div>
+    <div id="resultsMetrics"></div>
+  </div>
+  <div class="card">
+    <h2>What each number means</h2>
+    <dl class="explain" id="resultsExplain"></dl>
+  </div>
+  <div class="card">
+    <h3>The list</h3>
+    <div class="chips" id="resultsList"></div>
+  </div>
+  <div class="row">
+    <button id="btnHome">Done</button>
+    <button class="ghost" id="btnToHistory">See history</button>
+  </div>
+</section>
+
+<!-- ============ HISTORY ============ -->
+<section id="s-history" class="hidden">
+  <div class="card">
+    <h2>History</h2>
+    <div id="histChartWrap"></div>
+    <div class="scroll"><table id="histTable"></table></div>
+    <p class="faint" id="histEmpty"></p>
+  </div>
+  <div class="row">
+    <button class="ghost" id="btnBack">Back</button>
+    <button class="ghost" id="btnExportCsv">Export CSV</button>
+    <button class="ghost" id="btnExportJson">Export JSON</button>
+    <button class="ghost" id="btnReset">Erase all data</button>
+  </div>
+  <p class="faint" style="margin-top:12px">Everything is stored only in this browser. Nothing is sent anywhere. Clearing site data erases it — export regularly.</p>
+</section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ---------------- word pool: 20 categories x 15 concrete 1-2 syllable nouns ---------------- */
+const POOL = {
+land:["dog","horse","tiger","rabbit","camel","goat","bear","fox","mouse","deer","lion","wolf","sheep","zebra","monkey"],
+water:["shark","whale","crab","trout","seal","squid","eel","oyster","frog","otter","salmon","prawn","clam","turtle","carp"],
+bird:["robin","eagle","duck","sparrow","owl","crow","swan","goose","finch","hawk","bee","moth","ant","wasp","beetle"],
+body:["elbow","thumb","ankle","wrist","chin","knee","finger","shoulder","tongue","heel","jaw","palm","nose","cheek","spine"],
+cloth:["shirt","hat","glove","scarf","boot","belt","sock","coat","dress","skirt","vest","apron","sandal","jacket","collar"],
+furn:["chair","table","couch","shelf","desk","stool","bed","lamp","mirror","drawer","bench","cabinet","rug","curtain","wardrobe"],
+kitch:["spoon","kettle","plate","knife","bowl","cup","pan","fork","jar","mug","tray","whisk","ladle","sieve","grater"],
+tool:["hammer","wrench","drill","saw","nail","screw","pliers","chisel","ruler","clamp","axe","shovel","rake","crowbar","mallet"],
+vehic:["truck","bus","boat","plane","train","bike","tractor","ferry","van","sled","canoe","scooter","wagon","yacht","taxi"],
+build:["barn","church","tower","bridge","castle","hotel","school","tunnel","cabin","prison","museum","stadium","factory","cottage","mill"],
+nature:["mountain","river","forest","desert","canyon","valley","island","swamp","meadow","glacier","cliff","beach","cave","hill","dune"],
+sky:["thunder","cloud","rainbow","comet","moon","frost","breeze","lightning","fog","hail","star","sunset","dawn","shadow","eclipse"],
+produce:["apple","carrot","onion","plum","lettuce","melon","radish","cherry","turnip","mango","celery","peach","squash","leek","grape"],
+food:["bread","cheese","butter","soup","honey","pasta","rice","salt","cake","sugar","bacon","noodle","pepper","syrup","biscuit"],
+music:["drum","flute","piano","guitar","trumpet","violin","banjo","harp","cello","organ","tuba","oboe","cymbal","fiddle","chime"],
+office:["pencil","paper","folder","stapler","eraser","notebook","envelope","marker","binder","chalk","crayon","glue","tape","clipboard","ledger"],
+mater:["copper","iron","marble","rubber","velvet","leather","bronze","silk","plastic","concrete","wool","glass","clay","brick","steel"],
+play:["racket","kite","dice","ball","net","paddle","helmet","goggles","skate","bat","hoop","dart","javelin","puzzle","whistle"],
+people:["baker","sailor","farmer","doctor","teacher","pilot","judge","nurse","soldier","dancer","plumber","chef","miner","writer","tailor"],
+house:["pillow","blanket","towel","basket","bucket","candle","ladder","broom","mailbox","rope","button","zipper","soap","umbrella","hinge"]
+};
+const CATS = Object.keys(POOL);
+
+/* ---------------- storage ---------------- */
+const K_SESS="wlr.active", K_HIST="wlr.history", K_USED="wlr.used";
+function load(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } }
+function save(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+/* ---------------- list generation ---------------- */
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function buildList(){
+  let used = load(K_USED,[]);
+  let usedSet = new Set(used);
+  const cats = shuffle(CATS).slice(0,15);
+  const targets=[], foils=[];
+  let exhausted=false;
+  for(const c of cats){
+    let avail = POOL[c].filter(w=>!usedSet.has(w));
+    if(avail.length<2){ exhausted=true; avail = POOL[c].slice(); }
+    const picked = shuffle(avail);
+    targets.push(picked[0]);
+    foils.push(picked[1]);
+  }
+  if(exhausted){ used=[]; usedSet=new Set(); }
+  save(K_USED, used.concat(targets));
+  return {list:shuffle(targets), foils:foils, exhausted:exhausted};
+}
+
+/* ---------------- scoring ---------------- */
+function norm(s){ return String(s).toLowerCase().replace(/[^a-z]/g,""); }
+function lev(a,b){
+  if(a===b) return 0;
+  const m=a.length,n=b.length;
+  if(Math.abs(m-n)>1) return 2;
+  let prev=Array.from({length:n+1},(_,i)=>i);
+  for(let i=1;i<=m;i++){
+    const cur=[i];
+    for(let j=1;j<=n;j++){
+      cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    }
+    prev=cur;
+  }
+  return prev[n];
+}
+function matchTarget(entry, targets){
+  const e=norm(entry);
+  if(!e) return null;
+  for(const t of targets){ if(norm(t)===e) return t; }
+  if(e.length>=5){
+    for(const t of targets){ const tn=norm(t); if(Math.abs(tn.length-e.length)<=1 && lev(tn,e)===1) return t; }
+  }
+  return null;
+}
+function scoreRecall(entries, list){
+  const found=new Set(), out=[];
+  let correct=0, reps=0, intr=0;
+  for(const raw of entries){
+    const t = matchTarget(raw, list);
+    if(t===null){ out.push({w:raw,k:"miss"}); intr++; }
+    else if(found.has(t)){ out.push({w:raw,k:"rep"}); reps++; }
+    else { found.add(t); out.push({w:raw,k:"hit"}); correct++; }
+  }
+  return {correct, reps, intr, detail:out, found:[...found]};
+}
+
+/* ---------------- app state ---------------- */
+let S = null;
+let presentTimer=null, delayTimer=null;
+const DELAY_MS = 20*60*1000;
+
+const $ = id => document.getElementById(id);
+const SCREENS = ["home","ready","present","recall","trialfb","delay","honesty","recog","results","history"];
+function show(name){
+  SCREENS.forEach(s => $("s-"+s).classList.toggle("hidden", s!==name));
+  window.scrollTo(0,0);
+}
+
+/* ---------------- speech ---------------- */
+function speak(word){
+  try{
+    if(!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(word);
+    u.rate = 0.95; u.pitch = 1; u.volume = 1; u.lang = "en-US";
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ---------------- flow ---------------- */
+$("btnStart").onclick = () => {
+  const mode = parseInt(document.querySelector('input[name=mode]:checked').value,10);
+  const built = buildList();
+  S = {
+    id: Date.now(),
+    started: new Date().toISOString(),
+    mode,
+    recog: $("optRecog").checked,
+    list: built.list,
+    foils: built.foils,
+    trials: [],
+    trialIndex: 0,
+    delayed: null,
+    rehearsed: null,
+    recognition: null,
+    delayEndsAt: null,
+    phase: "ready"
+  };
+  if(built.exhausted){
+    alert("The word pool has been fully used and has now been recycled. Some words may repeat from earlier sessions.");
+  }
+  save(K_SESS,S);
+  goReady();
+};
+
+function goReady(){
+  const n = S.trialIndex+1;
+  $("readyTitle").textContent = S.mode===5 ? ("Trial "+n+" of 5") : "Presentation";
+  $("readyText").textContent = (S.mode===5 && n>1)
+    ? "Same fifteen words, same order. Listen again, then recall as many as you can — including ones you already got."
+    : "Fifteen words, one per second. Listen and watch. Don't write anything down. When they finish you'll type back as many as you can, in any order.";
+  S.phase="ready"; save(K_SESS,S);
+  show("ready");
+}
+
+$("btnPresent").onclick = () => {
+  show("present");
+  let i = 0;
+  const list = S.list;
+  const stage = $("stage");
+  stage.textContent = "";
+  $("presentBar").style.width="0%";
+  $("presentCount").textContent = "";
+  const tick = () => {
+    if(i >= list.length){
+      stage.textContent = "";
+      $("presentCount").textContent = "";
+      clearInterval(presentTimer); presentTimer=null;
+      setTimeout(goRecall, 600);
+      return;
+    }
+    const w = list[i];
+    stage.textContent = w;
+    speak(w);
+    i++;
+    $("presentBar").style.width = Math.round(i/list.length*100)+"%";
+    $("presentCount").textContent = i+" of "+list.length;
+    setTimeout(()=>{ if(stage.textContent===w) stage.textContent=""; }, 850);
+  };
+  setTimeout(()=>{ tick(); presentTimer = setInterval(tick, 1000); }, 800);
+};
+
+let entries = [];
+function goRecall(){
+  entries = [];
+  const delayed = S.phase==="delayedrecall";
+  $("recallTitle").textContent = delayed ? "Delayed recall" : (S.mode===5 ? "Recall — trial "+(S.trialIndex+1)+" of 5" : "Immediate recall");
+  $("recallChips").innerHTML = "";
+  $("recallCount").textContent = "0 entered";
+  $("recallInput").value = "";
+  show("recall");
+  setTimeout(()=>$("recallInput").focus(), 100);
+}
+
+$("recallInput").addEventListener("keydown", e => {
+  if(e.key !== "Enter") return;
+  const v = e.target.value.trim();
+  if(!v) return;
+  entries.push(v);
+  const c = document.createElement("span");
+  c.className = "chip"; c.textContent = v;
+  $("recallChips").appendChild(c);
+  $("recallCount").textContent = entries.length + " entered";
+  e.target.value = "";
+});
+
+$("btnRecallDone").onclick = () => {
+  const stray = $("recallInput").value.trim();
+  if(stray){ entries.push(stray); $("recallInput").value=""; }
+  if(S.phase === "delayedrecall"){
+    S.delayed = entries.slice();
+    save(K_SESS,S);
+    if(S.recog) goRecognition(); else finish();
+    return;
+  }
+  S.trials.push(entries.slice());
+  S.trialIndex++;
+  save(K_SESS,S);
+  if(S.mode===5 && S.trialIndex<5){ showTrialFeedback(); }
+  else { startDelay(); }
+};
+
+function showTrialFeedback(){
+  const sc = scoreRecall(S.trials[S.trialIndex-1], S.list);
+  $("tfbTitle").textContent = "Trial "+S.trialIndex+" of 5 complete";
+  let html = '<div class="metric"><span class="k">Words recalled</span><span class="v">'+sc.correct+' / 15</span></div>';
+  if(S.trialIndex>1){
+    const prev = scoreRecall(S.trials[S.trialIndex-2], S.list).correct;
+    const d = sc.correct - prev;
+    html += '<div class="metric"><span class="k">Change from last trial</span><span class="v">'+(d>0?"+":"")+d+'</span></div>';
+  }
+  html += '<p class="faint" style="margin-top:14px">Correctness of individual words is withheld until the end of the session, so that feedback does not do your learning for you.</p>';
+  $("tfbBody").innerHTML = html;
+  $("btnNextTrial").textContent = "Next trial";
+  show("trialfb");
+}
+$("btnNextTrial").onclick = goReady;
+
+/* ---------------- delay ---------------- */
+function startDelay(){
+  S.phase = "delay";
+  S.delayEndsAt = Date.now() + DELAY_MS;
+  save(K_SESS,S);
+  enterDelay();
+}
+function enterDelay(){
+  show("delay");
+  updateNotifyState();
+  tickDelay();
+  clearInterval(delayTimer);
+  delayTimer = setInterval(tickDelay, 1000);
+}
+function tickDelay(){
+  const left = S.delayEndsAt - Date.now();
+  if(left <= 0){
+    clearInterval(delayTimer); delayTimer=null;
+    $("timerText").textContent = "00:00";
+    $("delayBar").style.width = "100%";
+    $("btnDelaySkip").classList.remove("hidden");
+    $("btnDelaySkip").textContent = "Start delayed recall";
+    document.title = "Ready — Word List Recall";
+    fireNotification();
+    return;
+  }
+  const s = Math.ceil(left/1000);
+  const mm = String(Math.floor(s/60)).padStart(2,"0");
+  const ss = String(s%60).padStart(2,"0");
+  $("timerText").textContent = mm+":"+ss;
+  $("delayBar").style.width = Math.round((1 - left/DELAY_MS)*100)+"%";
+  document.title = mm+":"+ss+" — Word List Recall";
+}
+let notified=false;
+function fireNotification(){
+  if(notified) return; notified=true;
+  try{
+    if("Notification" in window && Notification.permission==="granted"){
+      new Notification("Delay finished", {body:"Time for delayed recall — don't look at anything first.", tag:"wlr"});
+    }
+  }catch(e){}
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 660; g.gain.value = 0.08;
+    o.start(); setTimeout(()=>{o.stop(); ctx.close();}, 500);
+  }catch(e){}
+}
+function updateNotifyState(){
+  if(!("Notification" in window)){ $("notifyState").textContent="Notifications unsupported in this browser."; $("btnNotify").classList.add("hidden"); return; }
+  if(Notification.permission==="granted"){ $("notifyState").textContent="Notification enabled."; $("btnNotify").classList.add("hidden"); }
+  else if(Notification.permission==="denied"){ $("notifyState").textContent="Blocked — the tab title counts down instead."; $("btnNotify").classList.add("hidden"); }
+  else { $("notifyState").textContent=""; $("btnNotify").classList.remove("hidden"); }
+}
+$("btnNotify").onclick = () => { try{ Notification.requestPermission().then(updateNotifyState); }catch(e){} };
+$("btnDelaySkip").onclick = () => { S.phase="honesty"; save(K_SESS,S); show("honesty"); };
+$("btnAbandon").onclick = () => {
+  if(!confirm("Discard this session? Nothing will be saved to history.")) return;
+  clearInterval(delayTimer); delayTimer=null;
+  document.title="Word List Recall";
+  del(K_SESS); S=null; show("home");
+};
+
+$("btnNoRehearse").onclick = () => { S.rehearsed=false; S.phase="delayedrecall"; save(K_SESS,S); goRecall(); };
+$("btnYesRehearse").onclick = () => { S.rehearsed=true; S.phase="delayedrecall"; save(K_SESS,S); goRecall(); };
+
+/* ---------------- recognition ---------------- */
+let recogPicks = new Set();
+function goRecognition(){
+  S.phase="recog"; save(K_SESS,S);
+  recogPicks = new Set();
+  const items = shuffle(S.list.concat(S.foils));
+  const grid = $("recogGrid");
+  grid.innerHTML = "";
+  items.forEach(w => {
+    const b = document.createElement("button");
+    b.type="button"; b.textContent=w; b.setAttribute("aria-pressed","false");
+    b.onclick = () => {
+      if(recogPicks.has(w)){ recogPicks.delete(w); b.setAttribute("aria-pressed","false"); }
+      else { recogPicks.add(w); b.setAttribute("aria-pressed","true"); }
+      $("recogCount").textContent = recogPicks.size+" selected";
+    };
+    grid.appendChild(b);
+  });
+  $("recogCount").textContent = "0 selected";
+  show("recog");
+}
+$("btnRecogDone").onclick = () => {
+  S.recognition = [...recogPicks];
+  save(K_SESS,S);
+  finish();
+};
+
+/* ---------------- results ---------------- */
+function computeSession(s){
+  const trialScores = s.trials.map(t => scoreRecall(t, s.list));
+  const bestImm = Math.max(...trialScores.map(t=>t.correct));
+  const d = scoreRecall(s.delayed||[], s.list);
+  const retention = bestImm>0 ? Math.round(d.correct/bestImm*100) : 0;
+  let hits=null, fa=null, disc=null;
+  if(s.recognition){
+    hits = s.recognition.filter(w=>s.list.includes(w)).length;
+    fa   = s.recognition.filter(w=>!s.list.includes(w)).length;
+    disc = hits - fa;
+  }
+  const totalLearning = trialScores.reduce((a,t)=>a+t.correct,0);
+  const slope = trialScores.length>1 ? trialScores[trialScores.length-1].correct - trialScores[0].correct : null;
+  const intr = trialScores.reduce((a,t)=>a+t.intr,0) + d.intr;
+  const reps = trialScores.reduce((a,t)=>a+t.reps,0) + d.reps;
+  return {trialScores, bestImm, delayed:d, retention, hits, fa, disc, totalLearning, slope, intr, reps};
+}
+
+function finish(){
+  clearInterval(delayTimer); delayTimer=null;
+  document.title = "Word List Recall";
+  const c = computeSession(S);
+  const rec = {
+    id:S.id, date:S.started, mode:S.mode, rehearsed:S.rehearsed,
+    trials:c.trialScores.map(t=>t.correct),
+    immediate:c.trialScores[0].correct,
+    bestImmediate:c.bestImm,
+    totalLearning:c.totalLearning,
+    slope:c.slope,
+    delayed:c.delayed.correct,
+    retention:c.retention,
+    hits:c.hits, falseAlarms:c.fa, discrimination:c.disc,
+    intrusions:c.intr, repetitions:c.reps,
+    list:S.list
+  };
+  const hist = load(K_HIST,[]);
+  hist.push(rec); save(K_HIST,hist);
+  renderResults(S, c);
+  del(K_SESS);
+  show("results");
+}
+
+function metric(k,v){ return '<div class="metric"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>'; }
+
+function renderResults(s, c){
+  $("resultsHead").innerHTML =
+    '<div class="headline"><div class="big">'+c.retention+'%</div><div class="lab">Retention — the headline number to track</div></div>'
+    + (s.rehearsed ? '<div class="note">You reported rehearsing during the delay. The delayed and retention figures for this session are inflated. Flagged in your history.</div>' : '');
+
+  let m = "";
+  if(s.mode===5){
+    m += metric("Trial scores", c.trialScores.map(t=>t.correct).join(" · "));
+    m += metric("Total learning (trials 1–5)", c.totalLearning+" / 75");
+    m += metric("Learning slope (T5 − T1)", (c.slope>0?"+":"")+c.slope);
+  } else {
+    m += metric("Immediate recall", c.trialScores[0].correct+" / 15");
+  }
+  m += metric("Delayed recall (20 min)", c.delayed.correct+" / 15");
+  m += metric("Retention", c.retention+"%");
+  if(c.disc!==null){
+    m += metric("Recognition hits", c.hits+" / 15");
+    m += metric("False alarms", c.fa+" / 15");
+    m += metric("Discrimination", (c.disc>0?"+":"")+c.disc);
+  }
+  m += metric("Intrusions", c.intr);
+  m += metric("Repetitions", c.reps);
+  $("resultsMetrics").innerHTML = m;
+
+  const ex = [
+    ["Retention", "Delayed recall divided by your best immediate score. This is the number to watch. Raw recall bounces around with how alert you were that hour; retention is about whether what you encoded survived twenty minutes, which is the thing lithium is most plausibly affecting."],
+    ["Immediate recall", "How much got in on first exposure. Sensitive to attention and processing speed — but also the metric most likely to hit a ceiling, since the words are both spoken and shown."]
+  ];
+  if(s.mode===5) ex.push(
+    ["Total learning", "The sum across all five trials, out of 75. The broadest single index of how efficiently you acquire new verbal material."],
+    ["Learning slope", "Trial 5 minus trial 1. A flat slope with repeated exposure points at an encoding problem rather than a retrieval one."]
+  );
+  ex.push(["Delayed recall", "Free recall after twenty minutes with no cue. The hardest condition, and the one that degrades first in most causes of subjective fog."]);
+  if(c.disc!==null) ex.push(
+    ["Discrimination", "Hits minus false alarms. High discrimination alongside poor delayed recall means the words were stored but you couldn't reach them — a retrieval problem. Low on both means they never got stored."],
+    ["False alarms", "Decoys you selected. Decoys come from the same categories as the targets, so these reflect how precisely the words were encoded, not just whether they were."]
+  );
+  ex.push(
+    ["Intrusions", "Words you produced that were never on the list. Sensitive to self-monitoring. A rising count over sessions is worth noticing independently of the recall totals."],
+    ["Repetitions", "Producing the same word twice without noticing. Same construct as intrusions — tracking what you've already said is an executive function, not a memory one."]
+  );
+  $("resultsExplain").innerHTML = ex.map(([t,d])=>"<dt>"+t+"</dt><dd>"+d+"</dd>").join("");
+
+  const got = new Set(scoreRecall(s.delayed||[], s.list).found);
+  $("resultsList").innerHTML = s.list.map(w =>
+    '<span class="chip '+(got.has(w)?"hit":"")+'">'+w+'</span>'
+  ).join("");
+}
+
+$("btnHome").onclick = () => { S=null; show("home"); };
+$("btnToHistory").onclick = renderHistory;
+$("navHistory").onclick = renderHistory;
+$("btnBack").onclick = () => { if(S && S.phase) resume(); else show("home"); };
+
+/* ---------------- history ---------------- */
+function renderHistory(){
+  const hist = load(K_HIST,[]);
+  const tbl = $("histTable");
+  if(!hist.length){
+    tbl.innerHTML = "";
+    $("histChartWrap").innerHTML = "";
+    $("histEmpty").textContent = "No sessions recorded yet.";
+    show("history"); return;
+  }
+  $("histEmpty").textContent = "";
+  const head = "<tr><th>Date</th><th>Mode</th><th>Imm</th><th>Del</th><th>Ret</th><th>Disc</th><th>Intr</th></tr>";
+  const rows = hist.slice().reverse().map(r=>{
+    const d = new Date(r.date);
+    const dt = d.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" "+d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+    return "<tr>"
+      +"<td>"+dt+(r.rehearsed?' <span class="flag">⚑</span>':"")+"</td>"
+      +"<td>"+(r.mode===5?"5-trial":"1-trial")+"</td>"
+      +"<td>"+r.bestImmediate+"</td>"
+      +"<td>"+r.delayed+"</td>"
+      +"<td>"+r.retention+"%</td>"
+      +"<td>"+(r.discrimination===null||r.discrimination===undefined?"—":r.discrimination)+"</td>"
+      +"<td>"+r.intrusions+"</td>"
+      +"</tr>";
+  }).join("");
+  tbl.innerHTML = head+rows;
+  $("histChartWrap").innerHTML = sparkline(hist);
+  show("history");
+}
+
+function sparkline(hist){
+  const clean = hist.filter(r=>!r.rehearsed);
+  if(clean.length<2) return '<p class="faint">Retention trend appears once you have two or more un-rehearsed sessions.</p>';
+  const W=620,H=120,P=24;
+  const vals = clean.map(r=>r.retention);
+  const n = vals.length;
+  const x = i => P + (W-2*P)*(n===1?0.5:i/(n-1));
+  const y = v => H-P - (H-2*P)*(v/100);
+  const pts = vals.map((v,i)=>x(i)+","+y(v)).join(" ");
+  const dots = vals.map((v,i)=>'<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3" fill="var(--accent)"/>').join("");
+  return '<svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="Retention percentage across sessions">'
+    +'<line x1="'+P+'" y1="'+y(0)+'" x2="'+(W-P)+'" y2="'+y(0)+'" stroke="var(--border)" stroke-width="1"/>'
+    +'<line x1="'+P+'" y1="'+y(100)+'" x2="'+(W-P)+'" y2="'+y(100)+'" stroke="var(--border)" stroke-width="1" stroke-dasharray="3 3"/>'
+    +'<polyline points="'+pts+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>'
+    +dots
+    +'<text x="'+(P-6)+'" y="'+(y(100)+4)+'" text-anchor="end" font-size="10" fill="var(--faint)">100</text>'
+    +'<text x="'+(P-6)+'" y="'+(y(0)+4)+'" text-anchor="end" font-size="10" fill="var(--faint)">0</text>'
+    +'</svg><p class="faint">Retention % across un-rehearsed sessions, oldest to newest.</p>';
+}
+
+/* ---------------- export ---------------- */
+function download(name, text, mime){
+  const blob = new Blob([text], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+$("btnExportJson").onclick = () => download("word-recall-"+new Date().toISOString().slice(0,10)+".json", JSON.stringify(load(K_HIST,[]),null,2), "application/json");
+$("btnExportCsv").onclick = () => {
+  const hist = load(K_HIST,[]);
+  const cols = ["date","mode","rehearsed","immediate","bestImmediate","totalLearning","slope","delayed","retention","hits","falseAlarms","discrimination","intrusions","repetitions"];
+  const rows = [cols.join(",")].concat(hist.map(r=>cols.map(c=>{
+    const v=r[c]; return v===null||v===undefined?"":String(v);
+  }).join(",")));
+  download("word-recall-"+new Date().toISOString().slice(0,10)+".csv", rows.join("\n"), "text/csv");
+};
+$("btnReset").onclick = () => {
+  if(!confirm("Erase all sessions and the used-word record? This cannot be undone. Export first if you want a copy.")) return;
+  del(K_HIST); del(K_USED); del(K_SESS); S=null; show("home");
+};
+
+/* ---------------- resume ---------------- */
+function resume(){
+  const s = load(K_SESS,null);
+  if(!s){ show("home"); return; }
+  S = s;
+  if(S.phase==="delay"){
+    if(Date.now() >= S.delayEndsAt){ S.phase="honesty"; save(K_SESS,S); show("honesty"); }
+    else { enterDelay(); }
+    return;
+  }
+  if(S.phase==="honesty"){ show("honesty"); return; }
+  if(S.phase==="delayedrecall"){ goRecall(); return; }
+  if(S.phase==="recog"){ goRecognition(); return; }
+  goReady();
+}
+window.addEventListener("beforeunload", ()=>{ if(S && S.phase) save(K_SESS,S); });
+resume();
+</script>
+</body>
+</html>
